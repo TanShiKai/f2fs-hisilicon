@@ -33,6 +33,7 @@
 #include "segment.h"
 #include "xattr.h"
 #include "gc.h"
+#include "hc.h"
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/f2fs.h>
@@ -3971,8 +3972,6 @@ try_onemore:
 			le64_to_cpu(seg_i->journal->info.kbytes_written);
 
 	f2fs_build_gc_manager(sbi);
-	printk("****************************\n");
-	printk("Calling f2fs_build_hc_manager\n");
 	f2fs_build_hc_manager(sbi);
 
 	err = f2fs_build_stats(sbi);
@@ -4116,6 +4115,13 @@ reset_checkpoint:
 	}
 	kvfree(options);
 
+	/*
+	 * start the hc_thread
+	 */
+	err = f2fs_start_hc_thread(sbi);
+	if (err)
+		goto sync_free_meta;
+
 	/* recover broken superblock */
 	if (recovery) {
 		err = f2fs_commit_super(sbi, true);
@@ -4233,6 +4239,9 @@ static void kill_f2fs_super(struct super_block *sb)
 
 		set_sbi_flag(sbi, SBI_IS_CLOSE);
 		f2fs_stop_gc_thread(sbi);
+		f2fs_stop_hc_thread(sbi);
+		save_hotness_entry(sbi);
+		release_hotness_entry(sbi);
 		f2fs_stop_discard_thread(sbi);
 
 #ifdef CONFIG_F2FS_FS_COMPRESSION
@@ -4395,6 +4404,7 @@ static void __exit exit_f2fs_fs(void)
 	unregister_shrinker(&f2fs_shrinker_info);
 	f2fs_exit_sysfs();
 	f2fs_destroy_garbage_collection_cache();
+	f2fs_destroy_hotness_clustering_cache();
 	f2fs_destroy_extent_cache();
 	f2fs_destroy_recovery_cache();
 	f2fs_destroy_checkpoint_caches();

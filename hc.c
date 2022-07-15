@@ -16,16 +16,14 @@
 // #include <trace/events/f2fs.h>
 
 static struct kmem_cache *hotness_entry_slab;
+struct kmem_cache *hotness_entry_info_slab;
 struct hc_list *hc_list_ptr;
 
 /* 热度元数据操作 */
 /* 1、添加 */
 // create
-void insert_hotness_entry(
-    struct f2fs_sb_info *sbi, 
-    block_t blkaddr, 
-    unsigned int *IRR, 
-    unsigned int *LWS){
+void insert_hotness_entry(struct f2fs_sb_info *sbi, block_t blkaddr, unsigned int *IRR, unsigned int *LWS, struct hotness_entry_info *hei)
+{
 	/* 
 	1、基数树中添加以blkaddr为index的节点
 	2、创建blkaddr热度元数据内存对象 */
@@ -36,6 +34,7 @@ void insert_hotness_entry(
 	new_he->blk_addr = blkaddr;
 	new_he->IRR = *IRR;
 	new_he->LWS = *LWS;
+	new_he->hei = hei;
 	hc_list_ptr->count++;
 	f2fs_radix_tree_insert(&hc_list_ptr->iroot, blkaddr, new_he);
 	printk("Before list_add_tail\n");
@@ -47,12 +46,9 @@ void insert_hotness_entry(
 }
 
 /* 2、查询 */
-int lookup_hotness_entry(
-    struct f2fs_sb_info *sbi, 
-    block_t blkaddr, 
-    unsigned int *IRR, 
-    unsigned int *LWS){
-	printk("In lookup_hotness_entry, xa_head = 0x%p\n", hc_list_ptr->iroot.xa_head);
+int lookup_hotness_entry(struct f2fs_sb_info *sbi, block_t blkaddr, unsigned int *IRR, unsigned int *LWS)
+{
+	// printk("In lookup_hotness_entry, xa_head = 0x%p\n", hc_list_ptr->iroot.xa_head);
 	/* 
 	1、基数树中查询以blkaddr为index的节点
 	2、释放blkaddr热度元数据内存对象 */
@@ -76,9 +72,8 @@ no_xa_head:
 }
 
 /* 3、移除 */
-void delete_hotness_entry(
-    struct f2fs_sb_info *sbi, 
-    block_t blkaddr){
+void delete_hotness_entry(struct f2fs_sb_info *sbi, block_t blkaddr)
+{
 	/* 
 	1、基数树中移除以blkaddr为index的节点
 	2、释放blkaddr热度元数据内存对象 */
@@ -96,19 +91,27 @@ void delete_hotness_entry(
 
 int f2fs_create_hotness_clustering_cache(void)
 {
-	printk("In f2fs_create_hotness_clustering_cache\n");
-	hotness_entry_slab = f2fs_kmem_cache_create("f2fs_hotness_entry",
-					sizeof(struct hotness_entry));
-	printk("Finish f2fs_kmem_cache_create\n");
+	// printk("In f2fs_create_hotness_clustering_cache\n");
+	hotness_entry_slab = f2fs_kmem_cache_create("f2fs_hotness_entry", sizeof(struct hotness_entry));
+	// printk("Finish f2fs_kmem_cache_create\n");
 	if (!hotness_entry_slab)
 		return -ENOMEM;
+	hotness_entry_info_slab = f2fs_kmem_cache_create("f2fs_hotness_entry_info", sizeof(struct hotness_entry_info));
+	if (!hotness_entry_info_slab)
+		return -ENOMEM;
 	return 0;
+}
+
+void f2fs_destroy_hotness_clustering_cache(void)
+{
+	kmem_cache_destroy(hotness_entry_slab);
+	kmem_cache_destroy(hotness_entry_info_slab);
 }
 
 static void init_hc_management(struct f2fs_sb_info *sbi)
 {
 	int err;
-	printk("In init_hc_management\n");
+	// printk("In init_hc_management\n");
 	err = f2fs_create_hotness_clustering_cache();
 	if (err)
 		printk("f2fs_create_hotness_clustering_cache error.\n");
@@ -118,18 +121,155 @@ static void init_hc_management(struct f2fs_sb_info *sbi)
 		.iroot = RADIX_TREE_INIT(hc_list_var.iroot, GFP_NOFS),
 	};
 	hc_list_ptr = &hc_list_var;
-	printk(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n");
-	printk("ilist size: %lu\n", sizeof(hc_list_ptr->ilist));
-	printk("iroot size: %lu\n", sizeof(hc_list_ptr->iroot));
-	printk("hc_list_ptr = 0x%p\n", hc_list_ptr);
-	printk("0x%p, 0x%p", hc_list_var.ilist.next, hc_list_var.ilist.prev);
-	printk("%u, %u, 0x%p\n", hc_list_var.iroot.xa_lock, hc_list_var.iroot.xa_flags, hc_list_var.iroot.xa_head);
+	// printk(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n");
+	// printk("ilist size: %lu\n", sizeof(hc_list_ptr->ilist));
+	// printk("iroot size: %lu\n", sizeof(hc_list_ptr->iroot));
+	// printk("hc_list_ptr = 0x%p\n", hc_list_ptr);
+	// printk("0x%p, 0x%p", hc_list_var.ilist.next, hc_list_var.ilist.prev);
+	// printk("%u, %u, 0x%p\n", hc_list_var.iroot.xa_lock, hc_list_var.iroot.xa_flags, hc_list_var.iroot.xa_head);
+
+	struct file *fp;
+	loff_t pos = 0;
+	char buf[100];
+	memset(buf, 0, 100);
+	fp = filp_open("/tmp/f2fs_hotness", O_RDWR|O_CREAT, 0644);
+	if (IS_ERR(fp)) {
+		printk("failed to open /tmp/f2fs_hotness.\n");
+		goto out;
+	}
+	kernel_read(fp, buf, 100, &pos);
+	filp_close(fp, NULL);
+	printk("read from /tmp/f2fs_hotness: %s\n", buf);
+out:
+	return;
 }
 
 void f2fs_build_hc_manager(struct f2fs_sb_info *sbi)
 {
-	printk("****************************\n");
 	printk("In f2fs_build_hc_manager\n");
 	init_hc_management(sbi);
 	printk("Finish f2fs_build_hc_manager\n");
+}
+
+static int kmeans_thread_func(void *data)
+{
+	printk("In kmeans_thread_func\n");
+	struct f2fs_sb_info *sbi = data;
+	struct f2fs_hc_kthread *hc_th = sbi->hc_thread;
+	wait_queue_head_t *wq = &sbi->hc_thread->hc_wait_queue_head;
+	unsigned int wait_ms;
+
+	wait_ms = hc_th->min_sleep_time;
+
+	set_freezable();
+	do {
+		wait_event_interruptible_timeout(*wq, kthread_should_stop() || freezing(current), msecs_to_jiffies(wait_ms));
+		printk("do one hc.\n");
+	} while (!kthread_should_stop());
+	return 0;
+}
+
+int f2fs_start_hc_thread(struct f2fs_sb_info *sbi)
+{
+	printk("In f2fs_start_hc_thread\n");
+    struct f2fs_hc_kthread *hc_th;
+	dev_t dev = sbi->sb->s_bdev->bd_dev;
+	int err = 0;
+
+	hc_th = f2fs_kmalloc(sbi, sizeof(struct f2fs_hc_kthread), GFP_KERNEL);
+	if (!hc_th) {
+		err = -ENOMEM;
+		goto out;
+	}
+
+	hc_th->min_sleep_time = DEF_HC_THREAD_MIN_SLEEP_TIME;
+	hc_th->max_sleep_time = DEF_HC_THREAD_MAX_SLEEP_TIME;
+	hc_th->no_hc_sleep_time = DEF_HC_THREAD_NOHC_SLEEP_TIME;
+
+    sbi->hc_thread = hc_th;
+	init_waitqueue_head(&sbi->hc_thread->hc_wait_queue_head);
+    sbi->hc_thread->f2fs_hc_task = kthread_run(kmeans_thread_func, sbi,
+			"f2fs_hc-%u:%u", MAJOR(dev), MINOR(dev));
+	if (IS_ERR(hc_th->f2fs_hc_task)) {
+		err = PTR_ERR(hc_th->f2fs_hc_task);
+		kfree(hc_th);
+		sbi->hc_thread = NULL;
+	}
+out:
+	return err;
+}
+
+void f2fs_stop_hc_thread(struct f2fs_sb_info *sbi) 
+{
+	printk("In f2fs_stop_hc_thread");
+	struct f2fs_hc_kthread *hc_th = sbi->hc_thread;
+
+	if (!hc_th)
+		return;
+	kthread_stop(hc_th->f2fs_hc_task);
+	kfree(hc_th);
+	sbi->hc_thread = NULL;
+}
+
+/**
+ * @brief 把热度元数据写到flash
+ * 
+ * @param sbi 
+ */
+void save_hotness_entry(struct f2fs_sb_info *sbi)
+{
+	printk("In save_hotness_entry");
+	struct hotness_entry *he, *tmp;
+	unsigned int capacity = 1000000;
+	unsigned int idx = 0;
+	char *buf = kmalloc(capacity, GFP_KERNEL);
+	if (!buf)  {
+		printk("kmalloc buffer failed!\n");
+		goto out;
+	}
+	memset(buf, 0, capacity);
+	char *msg = "tsk is a good boy.\n";
+	// memcpy(buf, msg, strlen(msg));
+	strcpy(buf, msg);
+	idx += strlen(msg);
+	// struct seq_file *s = kmalloc(sizeof(struct seq_file), GFP_KERNEL);
+	// if (!s) {
+	// 	printk("kmalloc seq_file failed!\n");
+	// 	goto out;
+	// }
+	// printk("%s, %u, %u, %u", s->buf, s->count, s->from, s->size);
+	// seq_printf(s, "tsk is a good boy.\n");
+	// printk("%s, %lu\n", s->buf, sizeof(s->buf));
+	// kfree(s);	
+
+	// list_for_each_entry_safe(he, tmp, hc_list_ptr->ilist, list) {
+		
+	// }
+	struct file *fp;
+	loff_t pos = 0;
+	fp = filp_open("/tmp/f2fs_hotness", O_RDWR|O_CREAT, 0644);
+	if (IS_ERR(fp)) goto out;
+	kernel_write(fp, buf, strlen(buf), &pos);
+	filp_close(fp, NULL);
+	kfree(buf);
+out:
+	return;
+}
+
+/**
+ * @brief 释放内存占用
+ */
+void release_hotness_entry(struct f2fs_sb_info *sbi)
+{
+	printk("In release_hotness_entry");
+	struct hotness_entry *he, *tmp;
+	list_for_each_entry_safe(he, tmp, &hc_list_ptr->ilist, list) {
+		list_del(&he->list);
+		kmem_cache_free(hotness_entry_slab, he);
+		hc_list_ptr->count--;
+	}
+	INIT_RADIX_TREE(&hc_list_ptr->iroot, GFP_NOFS);
+
+	// f2fs_bug_on(sbi, hc_list_ptr->count);
+	// f2fs_bug_on(sbi, !list_empty(&hc_list_ptr->ilist));
 }

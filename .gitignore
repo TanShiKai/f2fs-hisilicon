@@ -5,3 +5,4 @@
 *.mod.c
 Kconfig
 modules.order
+Module.symvers

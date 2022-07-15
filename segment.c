@@ -3503,6 +3503,15 @@ reallocate:
 		err = lookup_hotness_entry(fio->sbi, fio->old_blkaddr, &old_IRR, &old_LWS);
 		// err = lookup_hotness_entry(fio->sbi, fio->new_blkaddr-4, &old_IRR, &old_LWS);
 		printk("Finish lookup_hotness_entry\n");
+		struct hotness_entry_info *new_hei;
+		new_hei = f2fs_kmem_cache_alloc(hotness_entry_info_slab, GFP_NOFS);
+		new_hei->ino = fio->ino;
+		new_hei->type = fio->type;
+		new_hei->temp = fio->temp;
+		new_hei->io_type = fio->io_type;
+		new_hei->nid = sum->nid;
+		new_hei->ofs_in_node = sum->ofs_in_node;
+		new_hei->segno = fio->new_blkaddr >> 9;
         if (err == 0) {
             /* 
             1、复制old_blkaddr热度元数据
@@ -3512,7 +3521,7 @@ reallocate:
 			printk("lookup_hotness_entry succeeded\n");
 			unsigned int new_IRR = fio->sbi->total_writed_block_count - old_LWS;
 			unsigned int new_LWS = fio->sbi->total_writed_block_count;
-			insert_hotness_entry(fio->sbi, fio->new_blkaddr, &new_IRR, &new_LWS);
+			insert_hotness_entry(fio->sbi, fio->new_blkaddr, &new_IRR, &new_LWS, new_hei);
 			delete_hotness_entry(fio->sbi, fio->old_blkaddr);
         }
         else {/* 不存在 */
@@ -3523,7 +3532,7 @@ reallocate:
 			unsigned int new_IRR = UINT_MAX;
 			unsigned int new_LWS = fio->sbi->total_writed_block_count;
 			printk("Calling insert_hotness_entry\n");
-			insert_hotness_entry(fio->sbi, fio->new_blkaddr, &new_IRR, &new_LWS);
+			insert_hotness_entry(fio->sbi, fio->new_blkaddr, &new_IRR, &new_LWS, new_hei);
 			printk("Return from insert_hotness_entry\n");
         }
     }

@@ -1752,6 +1752,7 @@ struct f2fs_sb_info {
 	atomic_t compress_page_hit;		/* cache hit count */
 #endif
 
+	/* hotness clustering */
 	block_t total_writed_block_count;
     int n_clusters;
     unsigned int *centers;
@@ -3661,7 +3662,10 @@ void f2fs_destroy_garbage_collection_cache(void);
 /*
  * hc.c
  */
+int f2fs_start_hc_thread(struct f2fs_sb_info *sbi);
+void f2fs_stop_hc_thread(struct f2fs_sb_info *sbi);
 void f2fs_build_hc_manager(struct f2fs_sb_info *sbi);
+void f2fs_destroy_hotness_clustering_cache(void);
 
 /*
  * recovery.c
