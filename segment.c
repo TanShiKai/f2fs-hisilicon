@@ -3497,12 +3497,10 @@ reallocate:
         2、查询old_blkaddr对应的热度元数据 
         */
 		fio->sbi->total_writed_block_count++;
-		printk("Calling lookup_hotness_entry\n");
-		// printk("0x%p, 0x%p, 0x%p\n", fio->sbi, &old_IRR, &old_LWS);
-		printk("fio->old_blkaddr = %u\n", fio->old_blkaddr);
+		// printk("Calling lookup_hotness_entry\n");
+		// printk("fio->old_blkaddr = %u\n", fio->old_blkaddr);
 		err = lookup_hotness_entry(fio->sbi, fio->old_blkaddr, &old_IRR, &old_LWS);
-		// err = lookup_hotness_entry(fio->sbi, fio->new_blkaddr-4, &old_IRR, &old_LWS);
-		printk("Finish lookup_hotness_entry\n");
+		// printk("Finish lookup_hotness_entry\n");
 		struct hotness_entry_info *new_hei;
 		new_hei = f2fs_kmem_cache_alloc(hotness_entry_info_slab, GFP_NOFS);
 		new_hei->ino = fio->ino;
@@ -3512,13 +3510,12 @@ reallocate:
 		new_hei->nid = sum->nid;
 		new_hei->ofs_in_node = sum->ofs_in_node;
 		new_hei->segno = fio->new_blkaddr >> 9;
-        if (err == 0) {
+        if (err == 0) { // 存在
             /* 
             1、复制old_blkaddr热度元数据
             2、设置热度：IRR = current - LWS，LWS = total_writed_block_count;
             3、添加为new_blkaddr热度元数据
             4、重置old_blkaddr热度元数据 */
-			printk("lookup_hotness_entry succeeded\n");
 			unsigned int new_IRR = fio->sbi->total_writed_block_count - old_LWS;
 			unsigned int new_LWS = fio->sbi->total_writed_block_count;
 			insert_hotness_entry(fio->sbi, fio->new_blkaddr, &new_IRR, &new_LWS, new_hei);
@@ -3531,9 +3528,12 @@ reallocate:
             3、添加为new_blkaddr热度元数据 */
 			unsigned int new_IRR = UINT_MAX;
 			unsigned int new_LWS = fio->sbi->total_writed_block_count;
-			printk("Calling insert_hotness_entry\n");
+			// printk("Calling insert_hotness_entry\n");
 			insert_hotness_entry(fio->sbi, fio->new_blkaddr, &new_IRR, &new_LWS, new_hei);
-			printk("Return from insert_hotness_entry\n");
+			// printk("Return from insert_hotness_entry\n");
+
+			/* 记录 连续写入块 */
+			hc_list_ptr->successive_write_cnt++;
         }
     }
 

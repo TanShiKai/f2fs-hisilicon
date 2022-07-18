@@ -6,6 +6,8 @@
 #define DEF_HC_THREAD_MAX_SLEEP_TIME	60000
 #define DEF_HC_THREAD_NOHC_SLEEP_TIME	300000	/* wait 5 min */
 
+// extern nid_t last_ino;
+
 /* 热度定义 */
 struct hotness_entry
 {
@@ -40,8 +42,7 @@ struct hc_list {
 	struct list_head ilist; // 16 bytes
 	struct radix_tree_root iroot; // 16 bytes
 	unsigned int count;
-	unsigned int user_write_cnt;
-	unsigned int gc_write_cnt;
+	unsigned int successive_write_cnt;
 };
 extern struct hc_list *hc_list_ptr;
 
