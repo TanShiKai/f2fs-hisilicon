@@ -1756,6 +1756,7 @@ struct f2fs_sb_info {
 	block_t total_writed_block_count;
     int n_clusters;
     unsigned int *centers;
+	int centers_valid;
     struct f2fs_hc_kthread *hc_thread;
 };
 

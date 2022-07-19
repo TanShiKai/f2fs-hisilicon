@@ -2,6 +2,8 @@
 #define _LINUX_HC_H
 #define _F2FS_DEBUG
 
+#define N_CLUSTERS 3
+
 #define DEF_HC_THREAD_MIN_SLEEP_TIME	30000	/* milliseconds */
 #define DEF_HC_THREAD_MAX_SLEEP_TIME	60000
 #define DEF_HC_THREAD_NOHC_SLEEP_TIME	300000	/* wait 5 min */

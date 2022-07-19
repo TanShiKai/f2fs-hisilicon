@@ -13,6 +13,7 @@
 #include "node.h"
 #include "segment.h"
 #include "hc.h"
+#include "kmeans.h"
 // #include <trace/events/f2fs.h>
 
 static struct kmem_cache *hotness_entry_slab;
@@ -122,6 +123,12 @@ static void init_hc_management(struct f2fs_sb_info *sbi)
 		.iroot = RADIX_TREE_INIT(hc_list_var.iroot, GFP_NOFS),
 	};
 	hc_list_ptr = &hc_list_var;
+
+	sbi->n_clusters = N_CLUSTERS;
+	sbi->centers = kmalloc(sizeof(unsigned int) * sbi->n_clusters, GFP_KERNEL);
+	sbi->centers_valid = 0;
+	
+	// last_ino = kmalloc(sizeof(nid_t), GFP_KERNEL);
 	// printk(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n");
 	// printk("ilist size: %lu\n", sizeof(hc_list_ptr->ilist));
 	// printk("iroot size: %lu\n", sizeof(hc_list_ptr->iroot));
@@ -149,7 +156,6 @@ void f2fs_build_hc_manager(struct f2fs_sb_info *sbi)
 {
 	printk("In f2fs_build_hc_manager\n");
 	init_hc_management(sbi);
-	// last_ino = kmalloc(sizeof(nid_t), GFP_KERNEL);
 	printk("Finish f2fs_build_hc_manager\n");
 }
 
@@ -166,7 +172,9 @@ static int kmeans_thread_func(void *data)
 	set_freezable();
 	do {
 		wait_event_interruptible_timeout(*wq, kthread_should_stop() || freezing(current), msecs_to_jiffies(wait_ms));
-		printk("do one hc.\n");
+		// printk("do one hc.\n");
+		int err = f2fs_hc(hc_list_ptr, sbi);
+		if (!err) sbi->centers_valid = 1;
 	} while (!kthread_should_stop());
 	return 0;
 }
@@ -244,6 +252,7 @@ void save_hotness_entry(struct f2fs_sb_info *sbi)
 	// printk("%s, %lu\n", s->buf, sizeof(s->buf));
 	// kfree(s);	
 
+	/* 保存质心、元数据 */
 	// list_for_each_entry_safe(he, tmp, hc_list_ptr->ilist, list) {
 		
 	// }
@@ -271,6 +280,7 @@ void release_hotness_entry(struct f2fs_sb_info *sbi)
 		hc_list_ptr->count--;
 	}
 	INIT_RADIX_TREE(&hc_list_ptr->iroot, GFP_NOFS);
+	kfree(sbi->centers);
 	// kfree(last_ino);
 
 	// f2fs_bug_on(sbi, hc_list_ptr->count);
