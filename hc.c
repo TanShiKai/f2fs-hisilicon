@@ -156,6 +156,9 @@ static void init_hc_management(struct f2fs_sb_info *sbi)
 	unsigned int n_clusters;
 	kernel_read(fp, &n_clusters, sizeof(unsigned int), &pos);
 	printk("n_clusters = %u, pos = %llu\n", n_clusters, pos);
+
+
+	
 	// sscanf(buf, "%u ", &n_clusters);
 	// printk("n_clusters = %u\n", n_clusters);
 	// if (n_clusters <= 3) {
