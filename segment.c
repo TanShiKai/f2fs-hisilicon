@@ -21,6 +21,7 @@
 #include "node.h"
 #include "gc.h"
 #include "hc.h"
+#include "kmeans.h"
 #include <trace/events/f2fs.h>
 
 #define __reverse_ffz(x) __reverse_ffs(~(x))
@@ -3275,6 +3276,10 @@ static int __get_segment_type_4(struct f2fs_io_info *fio)
 	if (fio->type == DATA) {
 		struct inode *inode = fio->page->mapping->host;
 
+		if (fio->sbi->centers_valid && (fio->old_blkaddr != UINT_MAX)) {
+			return kmeans_get_type(fio);
+		}
+		
 		if (S_ISDIR(inode->i_mode))
 			return CURSEG_HOT_DATA;
 		else
@@ -3292,9 +3297,9 @@ static int __get_segment_type_6(struct f2fs_io_info *fio)
 	if (fio->type == DATA) {
 		struct inode *inode = fio->page->mapping->host;
 
-		// if (fio->sbi->centers) {
-			
-		// }
+		if (fio->sbi->centers_valid && (fio->old_blkaddr != UINT_MAX)) {
+			return kmeans_get_type(fio);
+		}
 
 		if (is_inode_flag_set(inode, FI_ALIGNED_WRITE))
 			return CURSEG_COLD_DATA_PINNED;
@@ -3495,14 +3500,16 @@ reallocate:
 		goto reallocate;
 	}
 
-	if (fio->type == DATA) {
+	printk("type = %u\n", type);
+	printk("fio->old_blkaddr = %u\n", fio->old_blkaddr);
+	if (type == CURSEG_WARM_DATA) {
+	// if (fio->type == DATA) {
        /*  
         1、累计写入块计数加一：total_writed_block_count++
         2、查询old_blkaddr对应的热度元数据 
         */
 		fio->sbi->total_writed_block_count++;
 		// printk("Calling lookup_hotness_entry\n");
-		// printk("fio->old_blkaddr = %u\n", fio->old_blkaddr);
 		err = lookup_hotness_entry(fio->sbi, fio->old_blkaddr, &old_IRR, &old_LWS);
 		// printk("Finish lookup_hotness_entry\n");
 		struct hotness_entry_info *new_hei;

@@ -29,8 +29,8 @@ void insert_hotness_entry(struct f2fs_sb_info *sbi, block_t blkaddr, unsigned in
 	/* 
 	1、基数树中添加以blkaddr为index的节点
 	2、创建blkaddr热度元数据内存对象 */
-	printk("In insert_hotness_entry\n");
-	printk("*IRR = %u, *LWS = %u", *IRR, *LWS);
+	// printk("In insert_hotness_entry\n");
+	// printk("*IRR = %u, *LWS = %u", *IRR, *LWS);
 	struct hotness_entry *new_he;
 	new_he = f2fs_kmem_cache_alloc(hotness_entry_slab, GFP_NOFS);
 	new_he->blk_addr = blkaddr;
@@ -39,12 +39,12 @@ void insert_hotness_entry(struct f2fs_sb_info *sbi, block_t blkaddr, unsigned in
 	new_he->hei = hei;
 	hc_list_ptr->count++;
 	f2fs_radix_tree_insert(&hc_list_ptr->iroot, blkaddr, new_he);
-	printk("Before list_add_tail\n");
-	printk("new_he = 0x%p, new_he->list in 0x%p", new_he, &new_he->list);
-	printk("ilist in 0x%p, next = 0x%p, prev = 0x%p, prev->next = 0x%p", &hc_list_ptr->ilist, hc_list_ptr->ilist.next, hc_list_ptr->ilist.prev, hc_list_ptr->ilist.prev->next);
+	// printk("Before list_add_tail\n");
+	// printk("new_he = 0x%p, new_he->list in 0x%p", new_he, &new_he->list);
+	// printk("ilist in 0x%p, next = 0x%p, prev = 0x%p, prev->next = 0x%p", &hc_list_ptr->ilist, hc_list_ptr->ilist.next, hc_list_ptr->ilist.prev, hc_list_ptr->ilist.prev->next);
 	list_add_tail(&new_he->list, &hc_list_ptr->ilist);
-	printk("After list_add_tail\n");
-	printk("ilist in 0x%p, next = 0x%p, prev = 0x%p, prev->next = 0x%p", &hc_list_ptr->ilist, hc_list_ptr->ilist.next, hc_list_ptr->ilist.prev, hc_list_ptr->ilist.prev->next);
+	// printk("After list_add_tail\n");
+	// printk("ilist in 0x%p, next = 0x%p, prev = 0x%p, prev->next = 0x%p", &hc_list_ptr->ilist, hc_list_ptr->ilist.next, hc_list_ptr->ilist.prev, hc_list_ptr->ilist.prev->next);
 }
 
 /* 2、查询 */
@@ -56,19 +56,19 @@ int lookup_hotness_entry(struct f2fs_sb_info *sbi, block_t blkaddr, unsigned int
 	2、释放blkaddr热度元数据内存对象 */
 	struct hotness_entry *he;
 	if (hc_list_ptr->iroot.xa_head == NULL) goto no_xa_head;
-	printk("iroot in 0x%p, blkaddr = %u\n", &hc_list_ptr->iroot, blkaddr);
+	// printk("iroot in 0x%p, blkaddr = %u\n", &hc_list_ptr->iroot, blkaddr);
 	he = radix_tree_lookup(&hc_list_ptr->iroot, blkaddr);
-	printk("radix_tree_lookup returns 0x%p\n", he);
+	// printk("radix_tree_lookup returns 0x%p\n", he);
 	if (he) {
         *IRR = he->IRR;
         *LWS = he->LWS;
         return 0;
     } else {
 no_xa_head:
-		printk("In lookup_hotness_entry, no_xa_head\n");
+		// printk("In lookup_hotness_entry, no_xa_head\n");
         *IRR = __UINT32_MAX__;
         *LWS = sbi->total_writed_block_count;
-		printk("*IRR = %u, *LWS = %u\n", *IRR, *LWS);
+		// printk("*IRR = %u, *LWS = %u\n", *IRR, *LWS);
         return -1;
     }
 }
@@ -117,13 +117,13 @@ static void init_hc_management(struct f2fs_sb_info *sbi)
 	err = f2fs_create_hotness_clustering_cache();
 	if (err)
 		printk("f2fs_create_hotness_clustering_cache error.\n");
-	sbi->total_writed_block_count = 0;
 	static struct hc_list hc_list_var = {
 		.ilist = LIST_HEAD_INIT(hc_list_var.ilist),
 		.iroot = RADIX_TREE_INIT(hc_list_var.iroot, GFP_NOFS),
 	};
 	hc_list_ptr = &hc_list_var;
 
+	sbi->total_writed_block_count = 0;
 	sbi->n_clusters = N_CLUSTERS;
 	sbi->centers = kmalloc(sizeof(unsigned int) * sbi->n_clusters, GFP_KERNEL);
 	sbi->centers_valid = 0;
@@ -138,16 +138,35 @@ static void init_hc_management(struct f2fs_sb_info *sbi)
 
 	struct file *fp;
 	loff_t pos = 0;
-	char buf[100];
-	memset(buf, 0, 100);
+	// char buf[100];
+	// memset(buf, 0, 100);
+	unsigned int capacity = 1000000;
+	char *buf = kmalloc(capacity, GFP_KERNEL);
+	if (!buf) {
+		printk("kmalloc buffer failed!\n");
+		goto out;
+	}
+	memset(buf, 0, capacity);
 	fp = filp_open("/tmp/f2fs_hotness", O_RDWR|O_CREAT, 0644);
 	if (IS_ERR(fp)) {
 		printk("failed to open /tmp/f2fs_hotness.\n");
 		goto out;
 	}
-	kernel_read(fp, buf, 100, &pos);
+	// printk(">>>>>>>>>>>\n");
+	unsigned int n_clusters;
+	kernel_read(fp, &n_clusters, sizeof(unsigned int), &pos);
+	printk("n_clusters = %u, pos = %llu\n", n_clusters, pos);
+	// sscanf(buf, "%u ", &n_clusters);
+	// printk("n_clusters = %u\n", n_clusters);
+	// if (n_clusters <= 3) {
+	// 	int i;
+	// 	for (i = 0; i < n_clusters; i++) {
+	// 		sscanf(buf, "%u ", &sbi->centers[i]);
+	// 		printk("%u", sbi->centers[i]);
+	// 	}
+	// }
+
 	filp_close(fp, NULL);
-	printk("read from /tmp/f2fs_hotness: %s\n", buf);
 out:
 	return;
 }
@@ -172,7 +191,6 @@ static int kmeans_thread_func(void *data)
 	set_freezable();
 	do {
 		wait_event_interruptible_timeout(*wq, kthread_should_stop() || freezing(current), msecs_to_jiffies(wait_ms));
-		// printk("do one hc.\n");
 		int err = f2fs_hc(hc_list_ptr, sbi);
 		if (!err) sbi->centers_valid = 1;
 	} while (!kthread_should_stop());
@@ -238,10 +256,13 @@ void save_hotness_entry(struct f2fs_sb_info *sbi)
 		goto out;
 	}
 	memset(buf, 0, capacity);
-	char *msg = "tsk is a good boy.\n";
+	// char *msg = "tsk is a good boy.\n";
 	// memcpy(buf, msg, strlen(msg));
-	strcpy(buf, msg);
-	idx += strlen(msg);
+	// strcpy(buf, msg);
+	// idx += strlen(msg);
+	// sprintf(buf, "%s\n", msg);
+	
+	// printk("buf = %s\n", buf);
 	// struct seq_file *s = kmalloc(sizeof(struct seq_file), GFP_KERNEL);
 	// if (!s) {
 	// 	printk("kmalloc seq_file failed!\n");
@@ -252,15 +273,29 @@ void save_hotness_entry(struct f2fs_sb_info *sbi)
 	// printk("%s, %lu\n", s->buf, sizeof(s->buf));
 	// kfree(s);	
 
-	/* 保存质心、元数据 */
-	// list_for_each_entry_safe(he, tmp, hc_list_ptr->ilist, list) {
-		
-	// }
 	struct file *fp;
 	loff_t pos = 0;
 	fp = filp_open("/tmp/f2fs_hotness", O_RDWR|O_CREAT, 0644);
 	if (IS_ERR(fp)) goto out;
-	kernel_write(fp, buf, strlen(buf), &pos);
+	kernel_write(fp, &sbi->n_clusters, sizeof(sbi->n_clusters), &pos);
+	printk("pos = %llu\n", pos);
+	/* 保存质心、元数据 */
+	// sprintf(buf, "%u ", sbi->n_clusters);
+	// kernel_write(fp, buf, strlen(buf), &pos);
+	// int i;
+	// for (i = 0; i < sbi->n_clusters; i++) {
+	// 	sprintf(buf, "%u ", sbi->centers[i]);
+	// 	kernel_write(fp, buf, strlen(buf), &pos);
+	// }
+	// sprintf(buf, "%s", "\n");
+	// kernel_write(fp, buf, strlen(buf), &pos);
+	// sprintf(buf, "%u\n", hc_list_ptr->count);
+	// kernel_write(fp, buf, strlen(buf), &pos);
+	// list_for_each_entry_safe(he, tmp, &hc_list_ptr->ilist, list) {
+	// 	sprintf(buf, "%u, %u\n", he->IRR, he->LWS);
+	// 	printk("buf = %s, pos = %llu\n", buf, pos);
+	// 	kernel_write(fp, buf, strlen(buf), &pos);
+	// }
 	filp_close(fp, NULL);
 	kfree(buf);
 out:

@@ -1753,9 +1753,9 @@ struct f2fs_sb_info {
 #endif
 
 	/* hotness clustering */
-	block_t total_writed_block_count;
-    int n_clusters;
-    unsigned int *centers;
+	block_t total_writed_block_count; // warm data block write count
+    unsigned int n_clusters;
+    unsigned int *centers; // hot, warm, cold in order
 	int centers_valid;
     struct f2fs_hc_kthread *hc_thread;
 };
