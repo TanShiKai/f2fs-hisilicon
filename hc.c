@@ -153,9 +153,35 @@ static void init_hc_management(struct f2fs_sb_info *sbi)
 		goto out;
 	}
 	// printk(">>>>>>>>>>>\n");
+	// read n_clusters
 	unsigned int n_clusters;
 	kernel_read(fp, &n_clusters, sizeof(unsigned int), &pos);
 	printk("n_clusters = %u, pos = %llu\n", n_clusters, pos);
+	sbi->n_clusters = n_clusters;
+
+	// read centers
+	unsigned int *centers = kmalloc(n_clusters * sizeof(unsigned int), GFP_KERNEL);
+	for(unsigned int i = 0; i < n_clusters; ++i) {
+		kernel_read(fp, &centers[i], sizeof(unsigned int), &pos);
+	}
+	sbi->centers = centers;
+
+	// read count
+	unsigned int count;
+	kernel_read(fp, &count, sizeof(unsigned int), &pos);
+	sbi->total_writed_block_count = count;
+
+	// read blk_addr & IRR & LWS for each block to init hc_list
+	block_t blk_addr_tmp;
+	unsigned int IRR_tmp;
+	unsigned int LWS_tmp;
+	struct hotness_entry_info *new_hei = NULL;
+	for(unsigned int i = 0; i < count; ++i) {
+		kernel_read(fp, &blk_addr_tmp, sizeof(unsigned int), &pos);
+		kernel_read(fp, &IRR_tmp, sizeof(unsigned int), &pos);
+		kernel_read(fp, &LWS_tmp, sizeof(unsigned int), &pos);
+		insert_hotness_entry(sbi, blk_addr_tmp, IRR_tmp, LWS_tmp, new_hei);
+	}
 
 
 	
@@ -280,7 +306,24 @@ void save_hotness_entry(struct f2fs_sb_info *sbi)
 	loff_t pos = 0;
 	fp = filp_open("/tmp/f2fs_hotness", O_RDWR|O_CREAT, 0644);
 	if (IS_ERR(fp)) goto out;
+	// save n_clusters
 	kernel_write(fp, &sbi->n_clusters, sizeof(sbi->n_clusters), &pos);
+	printk("pos = %llu\n", pos);
+	// save centers
+	for(unsigned int i = 0; i < sbi->n_clusters; ++i) {
+		kernel_write(fp, &sbi->centers[i], sizeof(unsigned int), &pos);
+	}
+	printk("pos = %llu\n", pos);
+	// save total_writed_block_count
+	kernel_write(fp, &sbi->total_writed_block_count, sizeof(unsigned int), &pos);
+	printk("pos = %llu\n", pos);
+	// save blk_addr & IRR & LWS for each hotness_entry
+	struct hotness_entry *he, *tmp;
+	list_for_each_entry_safe(he, tmp, &hc_list_ptr->ilist, list){
+		kernel_write(fp, &he->blk_addr, sizeof(unsigned int), &pos);
+		kernel_write(fp, &he->IRR, sizeof(unsigned int), &pos);
+		kernel_write(fp, &he->LWS, sizeof(unsigned int), &pos);
+	}
 	printk("pos = %llu\n", pos);
 	/* 保存质心、元数据 */
 	// sprintf(buf, "%u ", sbi->n_clusters);
