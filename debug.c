@@ -560,7 +560,10 @@ static int stat_show(struct seq_file *s, void *v)
 		seq_printf(s, "\n-------------------\n");
 		// seq_printf(s, "blk_addr = %u\n", *(&hc_list_ptr->ilist-12));
 		list_for_each_entry(he, &hc_list_ptr->ilist, list) {
-			seq_printf(s, "blk_addr = %u, IRR = %u, LWS = %u, ino = %u, segno = %u, type = %u, temp = %u, io_type = %u, nid = %u, ofs_in_node = %u\n", he->blk_addr, he->IRR, he->LWS, he->hei->ino, he->hei->segno, he->hei->type, he->hei->temp, he->hei->io_type, he->hei->nid, he->hei->ofs_in_node);
+			seq_printf(s, "blk_addr = %u, IRR = %u, LWS = %u", he->blk_addr, he->IRR, he->LWS);
+			if (he->hei) 
+				seq_printf(s, "ino = %u, segno = %u, type = %u, temp = %u, io_type = %u, nid = %u, ofs_in_node = %u", he->hei->ino, he->hei->segno, he->hei->type, he->hei->temp, he->hei->io_type, he->hei->nid, he->hei->ofs_in_node);
+			seq_printf(s, "\n");
 		}
 		seq_printf(s, "successive_write_cnt = %u\n", hc_list_ptr->successive_write_cnt);
 		// list_for_each(p, &hc_list_ptr->ilist) {

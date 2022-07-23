@@ -3500,8 +3500,8 @@ reallocate:
 		goto reallocate;
 	}
 
-	printk("type = %u\n", type);
-	printk("fio->old_blkaddr = %u\n", fio->old_blkaddr);
+	// printk("type = %u\n", type);
+	// printk("fio->old_blkaddr = %u\n", fio->old_blkaddr);
 	if (type == CURSEG_WARM_DATA) {
 	// if (fio->type == DATA) {
        /*  

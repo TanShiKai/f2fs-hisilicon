@@ -123,52 +123,38 @@ static void init_hc_management(struct f2fs_sb_info *sbi)
 	};
 	hc_list_ptr = &hc_list_var;
 
-	sbi->total_writed_block_count = 0;
-	sbi->n_clusters = N_CLUSTERS;
-	sbi->centers = kmalloc(sizeof(unsigned int) * sbi->n_clusters, GFP_KERNEL);
-	sbi->centers_valid = 0;
-	
-	// last_ino = kmalloc(sizeof(nid_t), GFP_KERNEL);
-	// printk(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n");
-	// printk("ilist size: %lu\n", sizeof(hc_list_ptr->ilist));
-	// printk("iroot size: %lu\n", sizeof(hc_list_ptr->iroot));
-	// printk("hc_list_ptr = 0x%p\n", hc_list_ptr);
-	// printk("0x%p, 0x%p", hc_list_var.ilist.next, hc_list_var.ilist.prev);
-	// printk("%u, %u, 0x%p\n", hc_list_var.iroot.xa_lock, hc_list_var.iroot.xa_flags, hc_list_var.iroot.xa_head);
-
 	struct file *fp;
 	loff_t pos = 0;
-	// char buf[100];
-	// memset(buf, 0, 100);
-	unsigned int capacity = 1000000;
-	char *buf = kmalloc(capacity, GFP_KERNEL);
-	if (!buf) {
-		printk("kmalloc buffer failed!\n");
-		goto out;
-	}
-	memset(buf, 0, capacity);
 	fp = filp_open("/tmp/f2fs_hotness", O_RDWR|O_CREAT, 0644);
 	if (IS_ERR(fp)) {
 		printk("failed to open /tmp/f2fs_hotness.\n");
+		sbi->total_writed_block_count = 0;
+		sbi->n_clusters = N_CLUSTERS;
+		sbi->centers = kmalloc(sizeof(unsigned int) * sbi->n_clusters, GFP_KERNEL);
+		sbi->centers_valid = 0;
 		goto out;
 	}
-	// printk(">>>>>>>>>>>\n");
-	// read n_clusters
+
+	printk(">>>>>>>>>>>\n");
 	unsigned int n_clusters;
-	kernel_read(fp, &n_clusters, sizeof(unsigned int), &pos);
+	kernel_read(fp, &n_clusters, sizeof(n_clusters), &pos);
 	printk("n_clusters = %u, pos = %llu\n", n_clusters, pos);
 	sbi->n_clusters = n_clusters;
 
 	// read centers
-	unsigned int *centers = kmalloc(n_clusters * sizeof(unsigned int), GFP_KERNEL);
-	for(unsigned int i = 0; i < n_clusters; ++i) {
-		kernel_read(fp, &centers[i], sizeof(unsigned int), &pos);
+	unsigned int i;
+	unsigned int *centers = kmalloc(sizeof(unsigned int) * sbi->n_clusters, GFP_KERNEL);
+	for(i = 0; i < n_clusters; ++i) {
+		kernel_read(fp, &centers[i], sizeof(centers[i]), &pos);
+		printk("%u, 0x%x\n", centers[i], centers[i]);
 	}
 	sbi->centers = centers;
+	sbi->centers_valid = 1;
 
 	// read count
 	unsigned int count;
-	kernel_read(fp, &count, sizeof(unsigned int), &pos);
+	kernel_read(fp, &count, sizeof(count), &pos);
+	printk("%u, 0x%x\n", count, count);
 	sbi->total_writed_block_count = count;
 
 	// read blk_addr & IRR & LWS for each block to init hc_list
@@ -176,24 +162,12 @@ static void init_hc_management(struct f2fs_sb_info *sbi)
 	unsigned int IRR_tmp;
 	unsigned int LWS_tmp;
 	struct hotness_entry_info *new_hei = NULL;
-	for(unsigned int i = 0; i < count; ++i) {
-		kernel_read(fp, &blk_addr_tmp, sizeof(unsigned int), &pos);
-		kernel_read(fp, &IRR_tmp, sizeof(unsigned int), &pos);
-		kernel_read(fp, &LWS_tmp, sizeof(unsigned int), &pos);
-		insert_hotness_entry(sbi, blk_addr_tmp, IRR_tmp, LWS_tmp, new_hei);
+	for(i = 0; i < count; i++) {
+		kernel_read(fp, &blk_addr_tmp, sizeof(blk_addr_tmp), &pos);
+		kernel_read(fp, &IRR_tmp, sizeof(IRR_tmp), &pos);
+		kernel_read(fp, &LWS_tmp, sizeof(LWS_tmp), &pos);
+		insert_hotness_entry(sbi, blk_addr_tmp, &IRR_tmp, &LWS_tmp, new_hei);
 	}
-
-
-	
-	// sscanf(buf, "%u ", &n_clusters);
-	// printk("n_clusters = %u\n", n_clusters);
-	// if (n_clusters <= 3) {
-	// 	int i;
-	// 	for (i = 0; i < n_clusters; i++) {
-	// 		sscanf(buf, "%u ", &sbi->centers[i]);
-	// 		printk("%u", sbi->centers[i]);
-	// 	}
-	// }
 
 	filp_close(fp, NULL);
 out:
@@ -276,74 +250,37 @@ void f2fs_stop_hc_thread(struct f2fs_sb_info *sbi)
 void save_hotness_entry(struct f2fs_sb_info *sbi)
 {
 	printk("In save_hotness_entry");
-	struct hotness_entry *he, *tmp;
-	unsigned int capacity = 1000000;
-	unsigned int idx = 0;
-	char *buf = kmalloc(capacity, GFP_KERNEL);
-	if (!buf)  {
-		printk("kmalloc buffer failed!\n");
-		goto out;
-	}
-	memset(buf, 0, capacity);
-	// char *msg = "tsk is a good boy.\n";
-	// memcpy(buf, msg, strlen(msg));
-	// strcpy(buf, msg);
-	// idx += strlen(msg);
-	// sprintf(buf, "%s\n", msg);
-	
-	// printk("buf = %s\n", buf);
-	// struct seq_file *s = kmalloc(sizeof(struct seq_file), GFP_KERNEL);
-	// if (!s) {
-	// 	printk("kmalloc seq_file failed!\n");
-	// 	goto out;
-	// }
-	// printk("%s, %u, %u, %u", s->buf, s->count, s->from, s->size);
-	// seq_printf(s, "tsk is a good boy.\n");
-	// printk("%s, %lu\n", s->buf, sizeof(s->buf));
-	// kfree(s);	
 
 	struct file *fp;
 	loff_t pos = 0;
 	fp = filp_open("/tmp/f2fs_hotness", O_RDWR|O_CREAT, 0644);
 	if (IS_ERR(fp)) goto out;
+
 	// save n_clusters
 	kernel_write(fp, &sbi->n_clusters, sizeof(sbi->n_clusters), &pos);
-	printk("pos = %llu\n", pos);
+	printk("pos = 0x%x\n", pos);
 	// save centers
-	for(unsigned int i = 0; i < sbi->n_clusters; ++i) {
-		kernel_write(fp, &sbi->centers[i], sizeof(unsigned int), &pos);
+	unsigned int i;
+	for(i = 0; i < sbi->n_clusters; i++) {
+		kernel_write(fp, &sbi->centers[i], sizeof(sbi->centers[i]), &pos);
+		printk("%u, 0x%x\n", sbi->centers[i], sbi->centers[i]);
 	}
-	printk("pos = %llu\n", pos);
+	printk("pos = 0x%x\n", pos);
 	// save total_writed_block_count
-	kernel_write(fp, &sbi->total_writed_block_count, sizeof(unsigned int), &pos);
-	printk("pos = %llu\n", pos);
+	kernel_write(fp, &sbi->total_writed_block_count, sizeof(sbi->total_writed_block_count), &pos);
+	printk("%u, 0x%x\n", sbi->total_writed_block_count, sbi->total_writed_block_count);
+	printk("pos = 0x%x\n", pos);
 	// save blk_addr & IRR & LWS for each hotness_entry
 	struct hotness_entry *he, *tmp;
 	list_for_each_entry_safe(he, tmp, &hc_list_ptr->ilist, list){
-		kernel_write(fp, &he->blk_addr, sizeof(unsigned int), &pos);
-		kernel_write(fp, &he->IRR, sizeof(unsigned int), &pos);
-		kernel_write(fp, &he->LWS, sizeof(unsigned int), &pos);
+		kernel_write(fp, &he->blk_addr, sizeof(he->blk_addr), &pos);
+		kernel_write(fp, &he->IRR, sizeof(he->IRR), &pos);
+		kernel_write(fp, &he->LWS, sizeof(he->LWS), &pos);
+		// printk("%u, 0x%x\n", he->blk_addr, he->blk_addr);
 	}
-	printk("pos = %llu\n", pos);
-	/* 保存质心、元数据 */
-	// sprintf(buf, "%u ", sbi->n_clusters);
-	// kernel_write(fp, buf, strlen(buf), &pos);
-	// int i;
-	// for (i = 0; i < sbi->n_clusters; i++) {
-	// 	sprintf(buf, "%u ", sbi->centers[i]);
-	// 	kernel_write(fp, buf, strlen(buf), &pos);
-	// }
-	// sprintf(buf, "%s", "\n");
-	// kernel_write(fp, buf, strlen(buf), &pos);
-	// sprintf(buf, "%u\n", hc_list_ptr->count);
-	// kernel_write(fp, buf, strlen(buf), &pos);
-	// list_for_each_entry_safe(he, tmp, &hc_list_ptr->ilist, list) {
-	// 	sprintf(buf, "%u, %u\n", he->IRR, he->LWS);
-	// 	printk("buf = %s, pos = %llu\n", buf, pos);
-	// 	kernel_write(fp, buf, strlen(buf), &pos);
-	// }
+	printk("pos = 0x%x\n", pos);
+	
 	filp_close(fp, NULL);
-	kfree(buf);
 out:
 	return;
 }
