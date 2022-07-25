@@ -135,39 +135,39 @@ static void init_hc_management(struct f2fs_sb_info *sbi)
 		goto out;
 	}
 
-	printk(">>>>>>>>>>>\n");
-	unsigned int n_clusters;
-	kernel_read(fp, &n_clusters, sizeof(n_clusters), &pos);
-	printk("n_clusters = %u, pos = %llu\n", n_clusters, pos);
-	sbi->n_clusters = n_clusters;
+	// printk(">>>>>>>>>>>\n");
+	// unsigned int n_clusters;
+	// kernel_read(fp, &n_clusters, sizeof(n_clusters), &pos);
+	// printk("n_clusters = %u, pos = %llu\n", n_clusters, pos);
+	// sbi->n_clusters = n_clusters;
 
-	// read centers
-	unsigned int i;
-	unsigned int *centers = kmalloc(sizeof(unsigned int) * sbi->n_clusters, GFP_KERNEL);
-	for(i = 0; i < n_clusters; ++i) {
-		kernel_read(fp, &centers[i], sizeof(centers[i]), &pos);
-		printk("%u, 0x%x\n", centers[i], centers[i]);
-	}
-	sbi->centers = centers;
-	sbi->centers_valid = 1;
+	// // read centers
+	// unsigned int i;
+	// unsigned int *centers = kmalloc(sizeof(unsigned int) * sbi->n_clusters, GFP_KERNEL);
+	// for(i = 0; i < n_clusters; ++i) {
+	// 	kernel_read(fp, &centers[i], sizeof(centers[i]), &pos);
+	// 	printk("%u, 0x%x\n", centers[i], centers[i]);
+	// }
+	// sbi->centers = centers;
+	// sbi->centers_valid = 1;
 
-	// read count
-	unsigned int count;
-	kernel_read(fp, &count, sizeof(count), &pos);
-	printk("%u, 0x%x\n", count, count);
-	sbi->total_writed_block_count = count;
+	// // read count
+	// unsigned int count;
+	// kernel_read(fp, &count, sizeof(count), &pos);
+	// printk("%u, 0x%x\n", count, count);
+	// sbi->total_writed_block_count = count;
 
-	// read blk_addr & IRR & LWS for each block to init hc_list
-	block_t blk_addr_tmp;
-	unsigned int IRR_tmp;
-	unsigned int LWS_tmp;
-	struct hotness_entry_info *new_hei = NULL;
-	for(i = 0; i < count; i++) {
-		kernel_read(fp, &blk_addr_tmp, sizeof(blk_addr_tmp), &pos);
-		kernel_read(fp, &IRR_tmp, sizeof(IRR_tmp), &pos);
-		kernel_read(fp, &LWS_tmp, sizeof(LWS_tmp), &pos);
-		insert_hotness_entry(sbi, blk_addr_tmp, &IRR_tmp, &LWS_tmp, new_hei);
-	}
+	// // read blk_addr & IRR & LWS for each block to init hc_list
+	// block_t blk_addr_tmp;
+	// unsigned int IRR_tmp;
+	// unsigned int LWS_tmp;
+	// struct hotness_entry_info *new_hei = NULL;
+	// for(i = 0; i < count; i++) {
+	// 	kernel_read(fp, &blk_addr_tmp, sizeof(blk_addr_tmp), &pos);
+	// 	kernel_read(fp, &IRR_tmp, sizeof(IRR_tmp), &pos);
+	// 	kernel_read(fp, &LWS_tmp, sizeof(LWS_tmp), &pos);
+	// 	insert_hotness_entry(sbi, blk_addr_tmp, &IRR_tmp, &LWS_tmp, new_hei);
+	// }
 
 	filp_close(fp, NULL);
 out:
