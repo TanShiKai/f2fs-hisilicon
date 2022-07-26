@@ -1,6 +1,7 @@
 #include <linux/fs.h>
 #include <linux/module.h>
 #include <linux/f2fs_fs.h>
+#include <linux/random.h>
 
 #include "f2fs.h"
 #include "node.h"
@@ -11,10 +12,69 @@
 #define diff(a, b) (a) < (b) ? ((b) - (a)) : ((a) - (b))
 #define MIN_3(a, b, c) ((a) < (b)) ? (((a) < (c)) ? CURSEG_HOT_DATA : CURSEG_COLD_DATA) : (((c) > (b)) ? CURSEG_WARM_DATA : CURSEG_COLD_DATA)
 #define MIN_2(a, b) ((a) < (b)) ? CURSEG_HOT_DATA : CURSEG_WARM_DATA
+#define MAX_LOOP_NUM 1000
+#define RANDOM_SEED 1
+
+static void add_to_nearest_set(unsigned int data, long long *mass_center, int center_num);
+static void find_initial_cluster(unsigned int *data, int data_num, long long *mass_center, int center_num, int init_random);
+static unsigned long long random(void);
+static void bubble_sort(unsigned int *x, int num);
 
 int f2fs_hc(struct hc_list *hc_list_ptr, struct f2fs_sb_info *sbi)
 {
+    /*
+    1、对传入的热度数据进行k-means聚类
+    2、聚类结果保存在f2fs_sb_info centers
+    */
     printk("Doing f2fs_hc...\n");
+    if (hc_list_ptr->count > 1000000)
+        return -1;
+    struct hotness_entry *he;
+    int center_num = sbi->n_clusters;
+    unsigned int *data = kmalloc(sizeof(unsigned int) * hc_list_ptr->count, GFP_KERNEL);
+    long long *mass_center = kmalloc(sizeof(long long) * center_num * 3, GFP_KERNEL); //存放质心，平均值，集合元素数
+    int data_num = 0;
+    list_for_each_entry(he, &hc_list_ptr->ilist, list)
+    {
+        if (he->IRR != UINT_MAX)
+            data[data_num++] = he->IRR;
+        // printk("IRR = %u", he->IRR);
+    }
+    find_initial_cluster(data, data_num, mass_center, center_num, RANDOM_SEED);
+    int flag = 1, loop_count = 0, i, j;
+    while (flag == 1 && loop_count < MAX_LOOP_NUM)
+    {
+        flag = 0;
+        ++loop_count;
+        //每次循环都将上一次的平均值和集合元素数归零
+        for (i = 0; i < center_num; ++i)
+        {
+            mass_center[i * 3 + 1] = 0;
+            mass_center[i * 3 + 2] = 0;
+        }
+        for (j = 0; j < data_num; ++j)
+            add_to_nearest_set(data[j], mass_center, center_num);
+        for (i = 0; i < center_num; ++i)
+        {
+            if (mass_center[i * 3 + 2] == 0)
+                continue;
+            if (mass_center[i * 3] != mass_center[i * 3 + 1] / mass_center[i * 3 + 2])
+            {
+                flag = 1;
+                mass_center[i * 3] = mass_center[i * 3 + 1] / mass_center[i * 3 + 2];
+            }
+            // if (mass_center[i * 3] != mass_center[i * 3 + 1])
+            // {
+            //     flag = 1;
+            //     mass_center[i * 3] = mass_center[i * 3 + 1];
+            // }
+        }
+    }
+    for (i = 0; i < center_num; ++i)
+        sbi->centers[i] = (unsigned int)mass_center[i * 3];
+    bubble_sort(sbi->centers, center_num);
+    kfree(data);
+    kfree(mass_center);
     return 0;
 }
 
@@ -39,4 +99,85 @@ int kmeans_get_type(struct f2fs_io_info *fio)
     }
     
     return type;
+}
+
+static void find_initial_cluster(unsigned int *data, int data_num, long long *mass_center, int center_num, int init_random)
+{
+    int i, j, k;
+    //随机播种
+    if (init_random == 1)
+    {
+        for (i = 0; i < center_num; ++i)
+            mass_center[i * 3] = data[(int)(random() % data_num)];
+        return;
+    }
+    // kmeans++播种
+    mass_center[0] = data[(int)(random() % data_num)];
+    unsigned int *distance = kmalloc(sizeof(unsigned int) * data_num, GFP_KERNEL);
+    unsigned long long total_distance;
+    for (k = 1; k < center_num; ++k)
+    {
+        total_distance = 0;
+        //求每一个元素到当前所有质心的距离
+        for (j = 0; j < data_num; ++j)
+        {
+            distance[j] = 0;
+            for (i = 0; i < k; i++)
+                distance[j] += diff(mass_center[i * 3], data[j]);
+            total_distance += distance[j];
+        }
+        //距离当前质心越远的元素更有可能被选为质心
+        unsigned long long threshold = random() % total_distance;
+        unsigned long long distance_sum = 0;
+        for (j = 0; j < data_num; ++j)
+        {
+            distance_sum += distance[j];
+            if (distance_sum >= threshold)
+                break;
+        }
+        //产生了新的质心
+        mass_center[k * 3] = data[j];
+    }
+}
+
+static unsigned long long random(void)
+{
+    unsigned long long x;
+    get_random_bytes(&x, sizeof(x));
+    return x;
+}
+
+static void add_to_nearest_set(unsigned int data, long long *mass_center, int center_num)
+{
+    /*
+     * 将输入的参数点寻找最近的质心，并加入质心的函数中
+     */
+    unsigned int min = diff(mass_center[0], data);
+    int position = 0, i;
+    for (i = 1; i < center_num; i++)
+    {
+        unsigned int temp = diff(mass_center[i * 3], data);
+        if (temp < min)
+        {
+            min = temp;
+            position = i;
+        }
+    }
+    mass_center[position * 3 + 1] += data;
+    ++mass_center[position * 3 + 2];
+    // mass_center[position * 3 + 1] = mass_center[position * 3 + 1] + (data - mass_center[position * 3 + 1]) / (++mass_center[position * 3 + 2]);
+}
+
+static void bubble_sort(unsigned int *x, int num)
+{
+    int temp, i, j;
+    for (i = 0; i < num - 1; ++i)
+        for (j = 0; j < num - 1 - i; ++j)
+            if (x[j] > x[j + 1])
+            {
+                temp = x[j + 1];
+                x[j + 1] = x[j];
+                x[j] = temp;
+            }
+    return;
 }
