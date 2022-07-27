@@ -13,7 +13,7 @@
 #define MIN_3(a, b, c) ((a) < (b)) ? (((a) < (c)) ? CURSEG_HOT_DATA : CURSEG_COLD_DATA) : (((c) > (b)) ? CURSEG_WARM_DATA : CURSEG_COLD_DATA)
 #define MIN_2(a, b) ((a) < (b)) ? CURSEG_HOT_DATA : CURSEG_WARM_DATA
 #define MAX_LOOP_NUM 1000
-#define RANDOM_SEED 1
+#define RANDOM_SEED 0  // 0为kmeans++播种，12为随机播种
 
 static void add_to_nearest_set(unsigned int data, long long *mass_center, int center_num);
 static void find_initial_cluster(unsigned int *data, int data_num, long long *mass_center, int center_num, int init_random);
@@ -40,8 +40,22 @@ int f2fs_hc(struct hc_list *hc_list_ptr, struct f2fs_sb_info *sbi)
             data[data_num++] = he->IRR;
         // printk("IRR = %u", he->IRR);
     }
+    if (data_num == 0) return -1;
+    int i;
+    // if (sbi->centers_valid) {
+    //     for (i = 0; i < center_num; ++i) {
+    //         mass_center[i] = (long long)sbi->centers[i];
+    //     }
+    // } else {
+    //     find_initial_cluster(data, data_num, mass_center, center_num, RANDOM_SEED);
+    // }
     find_initial_cluster(data, data_num, mass_center, center_num, RANDOM_SEED);
-    int flag = 1, loop_count = 0, i, j;
+    int flag = 1, loop_count = 0, j;
+    printk("IRRs: ");
+    for (i = 0; i < data_num; i++) {
+        printk("%u ", data[i]);
+    }
+    printk("\n");
     while (flag == 1 && loop_count < MAX_LOOP_NUM)
     {
         flag = 0;
@@ -73,6 +87,11 @@ int f2fs_hc(struct hc_list *hc_list_ptr, struct f2fs_sb_info *sbi)
     for (i = 0; i < center_num; ++i)
         sbi->centers[i] = (unsigned int)mass_center[i * 3];
     bubble_sort(sbi->centers, center_num);
+    printk("centers: ");
+    for (i = 0; i < center_num; i++) {
+        printk("%u ", sbi->centers[i]);
+    }
+    printk("\n");
     kfree(data);
     kfree(mass_center);
     return 0;
@@ -107,6 +126,7 @@ static void find_initial_cluster(unsigned int *data, int data_num, long long *ma
     //随机播种
     if (init_random == 1)
     {
+random_seed:
         for (i = 0; i < center_num; ++i)
             mass_center[i * 3] = data[(int)(random() % data_num)];
         return;
@@ -127,6 +147,7 @@ static void find_initial_cluster(unsigned int *data, int data_num, long long *ma
             total_distance += distance[j];
         }
         //距离当前质心越远的元素更有可能被选为质心
+        if (total_distance == 0) goto random_seed;
         unsigned long long threshold = random() % total_distance;
         unsigned long long distance_sum = 0;
         for (j = 0; j < data_num; ++j)

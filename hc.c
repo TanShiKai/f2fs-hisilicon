@@ -125,7 +125,8 @@ static void init_hc_management(struct f2fs_sb_info *sbi)
 
 	struct file *fp;
 	loff_t pos = 0;
-	fp = filp_open("/tmp/f2fs_hotness", O_RDWR, 0644);
+	// fp = filp_open("/tmp/f2fs_hotness", O_RDWR, 0644);
+	fp = filp_open("/tmp/f2fs_hotness_no", O_RDWR, 0644);
 	if (IS_ERR(fp)) {
 		printk("failed to open /tmp/f2fs_hotness.\n");
 		sbi->total_writed_block_count = 0;
@@ -167,6 +168,7 @@ static void init_hc_management(struct f2fs_sb_info *sbi)
 		kernel_read(fp, &IRR_tmp, sizeof(IRR_tmp), &pos);
 		kernel_read(fp, &LWS_tmp, sizeof(LWS_tmp), &pos);
 		insert_hotness_entry(sbi, blk_addr_tmp, &IRR_tmp, &LWS_tmp, new_hei);
+		printk("%u, %u, %u\n", blk_addr_tmp, IRR_tmp, LWS_tmp);
 	}
 
 	filp_close(fp, NULL);
