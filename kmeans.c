@@ -13,7 +13,7 @@
 #define MIN_3(a, b, c) ((a) < (b)) ? (((a) < (c)) ? CURSEG_HOT_DATA : CURSEG_COLD_DATA) : (((c) > (b)) ? CURSEG_WARM_DATA : CURSEG_COLD_DATA)
 #define MIN_2(a, b) ((a) < (b)) ? CURSEG_HOT_DATA : CURSEG_WARM_DATA
 #define MAX_LOOP_NUM 1000
-#define RANDOM_SEED 0  // 0为kmeans++播种，12为随机播种
+#define RANDOM_SEED 0  // 0为kmeans++播种，1为随机播种
 
 static void add_to_nearest_set(unsigned int data, long long *mass_center, int center_num);
 static void find_initial_cluster(unsigned int *data, int data_num, long long *mass_center, int center_num, int init_random);
