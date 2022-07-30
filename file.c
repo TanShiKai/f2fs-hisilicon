@@ -4340,8 +4340,6 @@ static ssize_t f2fs_file_read_iter(struct kiocb *iocb, struct iov_iter *iter)
 	struct inode *inode = file_inode(file);
 	int ret;
 
-	printk("In f2fs_file_read_iter\n");
-
 	if (!f2fs_is_compress_backend_ready(inode))
 		return -EOPNOTSUPP;
 

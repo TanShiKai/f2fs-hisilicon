@@ -3501,9 +3501,9 @@ reallocate:
 	}
 
 	printk("type = %u\n", type);
-	printk("fio->old_blkaddr = %u\n", fio->old_blkaddr);
-	// if (type == CURSEG_WARM_DATA) {
-	if (fio->type == DATA) {
+	// printk("fio->old_blkaddr = %u\n", fio->old_blkaddr);
+	if (type == CURSEG_WARM_DATA) {
+	// if (fio->type == DATA) {
        /*  
         1、累计写入块计数加一：total_writed_block_count++
         2、查询old_blkaddr对应的热度元数据 
@@ -3512,6 +3512,7 @@ reallocate:
 		// printk("Calling lookup_hotness_entry\n");
 		err = lookup_hotness_entry(fio->sbi, fio->old_blkaddr, &old_IRR, &old_LWS);
 		// printk("Finish lookup_hotness_entry\n");
+		unsigned int segno = GET_SEGNO(fio->sbi, fio->new_blkaddr);
 		struct hotness_entry_info *new_hei;
 		new_hei = f2fs_kmem_cache_alloc(hotness_entry_info_slab, GFP_NOFS);
 		new_hei->ino = fio->ino;
@@ -3520,7 +3521,8 @@ reallocate:
 		new_hei->io_type = fio->io_type;
 		new_hei->nid = sum->nid;
 		new_hei->ofs_in_node = sum->ofs_in_node;
-		new_hei->segno = fio->new_blkaddr >> 9;
+		// new_hei->segno = fio->new_blkaddr >> 9;
+		new_hei->segno = segno;
         if (err == 0) { // 存在
             /* 
             1、复制old_blkaddr热度元数据
@@ -3531,6 +3533,8 @@ reallocate:
 			unsigned int new_LWS = fio->sbi->total_writed_block_count;
 			insert_hotness_entry(fio->sbi, fio->new_blkaddr, &new_IRR, &new_LWS, new_hei);
 			delete_hotness_entry(fio->sbi, fio->old_blkaddr);
+			hc_list_ptr->upd_blk_cnt++;
+			segment_valid[segno] = 1;
         }
         else {/* 不存在 */
             /* 
@@ -3544,7 +3548,14 @@ reallocate:
 			// printk("Return from insert_hotness_entry\n");
 
 			/* 记录 连续写入块 */
-			hc_list_ptr->successive_write_cnt++;
+			// hc_list_ptr->successive_write_cnt++;
+			hc_list_ptr->new_blk_cnt++;
+			if (last_ino != UINT_MAX) {
+				if (fio->ino == last_ino) {
+					hc_list_ptr->new_blk_compress_cnt++;
+				}
+			}
+			last_ino = fio->ino;
         }
     }
 

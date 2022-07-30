@@ -51,11 +51,11 @@ int f2fs_hc(struct hc_list *hc_list_ptr, struct f2fs_sb_info *sbi)
     // }
     find_initial_cluster(data, data_num, mass_center, center_num, RANDOM_SEED);
     int flag = 1, loop_count = 0, j;
-    printk("IRRs: ");
-    for (i = 0; i < data_num; i++) {
-        printk("%u ", data[i]);
-    }
-    printk("\n");
+    // printk("IRRs: ");
+    // for (i = 0; i < data_num; i++) {
+    //     printk("%u ", data[i]);
+    // }
+    // printk("\n");
     while (flag == 1 && loop_count < MAX_LOOP_NUM)
     {
         flag = 0;

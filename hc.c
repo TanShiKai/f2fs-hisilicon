@@ -19,7 +19,8 @@
 static struct kmem_cache *hotness_entry_slab;
 struct kmem_cache *hotness_entry_info_slab;
 struct hc_list *hc_list_ptr;
-// nid_t last_ino;
+nid_t last_ino;
+char segment_valid[MAX_SEGNO];
 
 /* 热度元数据操作 */
 /* 1、添加 */
@@ -180,6 +181,8 @@ void f2fs_build_hc_manager(struct f2fs_sb_info *sbi)
 {
 	printk("In f2fs_build_hc_manager\n");
 	init_hc_management(sbi);
+	last_ino = __UINT32_MAX__;
+	memset(segment_valid, 0, MAX_SEGNO);
 	printk("Finish f2fs_build_hc_manager\n");
 }
 
@@ -301,7 +304,6 @@ void release_hotness_entry(struct f2fs_sb_info *sbi)
 	}
 	INIT_RADIX_TREE(&hc_list_ptr->iroot, GFP_NOFS);
 	kfree(sbi->centers);
-	// kfree(last_ino);
 
 	// f2fs_bug_on(sbi, hc_list_ptr->count);
 	// f2fs_bug_on(sbi, !list_empty(&hc_list_ptr->ilist));

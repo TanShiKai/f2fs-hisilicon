@@ -565,7 +565,14 @@ static int stat_show(struct seq_file *s, void *v)
 				seq_printf(s, "ino = %u, segno = %u, type = %u, temp = %u, io_type = %u, nid = %u, ofs_in_node = %u", he->hei->ino, he->hei->segno, he->hei->type, he->hei->temp, he->hei->io_type, he->hei->nid, he->hei->ofs_in_node);
 			seq_printf(s, "\n");
 		}
-		seq_printf(s, "successive_write_cnt = %u\n", hc_list_ptr->successive_write_cnt);
+		seq_printf(s, "new_blk_cnt = %u\n", hc_list_ptr->new_blk_cnt);
+		seq_printf(s, "new_blk_compress_cnt = %u\n", hc_list_ptr->new_blk_compress_cnt);
+		seq_printf(s, "upd_blk_cnt = %u\n", hc_list_ptr->upd_blk_cnt);
+		unsigned int upd_seg_cnt = 0;
+		for (i = 0; i < MAX_SEGNO; i++) {
+			upd_seg_cnt += segment_valid[i];
+		}
+		seq_printf(s, "upd_seg_cnt = %u\n", upd_seg_cnt);
 		if(si->sbi->centers_valid) {
 			for (j = 0; j < si->sbi->n_clusters; ++j) {
 				seq_printf(s, "centers[%u] = %u, ", j, si->sbi->centers[j]);

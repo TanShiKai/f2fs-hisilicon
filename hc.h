@@ -8,7 +8,10 @@
 #define DEF_HC_THREAD_MAX_SLEEP_TIME	60000
 #define DEF_HC_THREAD_NOHC_SLEEP_TIME	300000	/* wait 5 min */
 
-// extern nid_t last_ino;
+extern nid_t last_ino;
+extern nid_t last2_ino;
+#define MAX_SEGNO 4*1048576
+extern char segment_valid[MAX_SEGNO];
 
 /* 热度定义 */
 struct hotness_entry
@@ -43,8 +46,10 @@ extern struct kmem_cache *hotness_entry_info_slab;
 struct hc_list {
 	struct list_head ilist; // 16 bytes
 	struct radix_tree_root iroot; // 16 bytes
-	unsigned int count;
-	unsigned int successive_write_cnt;
+	unsigned int count; // number of hotness entry
+	unsigned int new_blk_cnt;
+	unsigned int new_blk_compress_cnt;
+	unsigned int upd_blk_cnt;
 };
 extern struct hc_list *hc_list_ptr;
 
