@@ -7,6 +7,7 @@
 #include <linux/delay.h>
 #include <linux/freezer.h>
 #include <linux/sched/signal.h>
+#include <linux/mutex.h>
 // #include <include/linux/xarray.h>
 
 #include "f2fs.h"
@@ -16,6 +17,7 @@
 #include "kmeans.h"
 // #include <trace/events/f2fs.h>
 
+static DEFINE_MUTEX(list_lock);
 static struct kmem_cache *hotness_entry_slab;
 struct kmem_cache *hotness_entry_info_slab;
 struct hc_list *hc_list_ptr;
@@ -40,12 +42,10 @@ void insert_hotness_entry(struct f2fs_sb_info *sbi, block_t blkaddr, unsigned in
 	new_he->hei = hei;
 	hc_list_ptr->count++;
 	f2fs_radix_tree_insert(&hc_list_ptr->iroot, blkaddr, new_he);
-	// printk("Before list_add_tail\n");
-	// printk("new_he = 0x%p, new_he->list in 0x%p", new_he, &new_he->list);
-	// printk("ilist in 0x%p, next = 0x%p, prev = 0x%p, prev->next = 0x%p", &hc_list_ptr->ilist, hc_list_ptr->ilist.next, hc_list_ptr->ilist.prev, hc_list_ptr->ilist.prev->next);
-	list_add_tail(&new_he->list, &hc_list_ptr->ilist);
-	// printk("After list_add_tail\n");
-	// printk("ilist in 0x%p, next = 0x%p, prev = 0x%p, prev->next = 0x%p", &hc_list_ptr->ilist, hc_list_ptr->ilist.next, hc_list_ptr->ilist.prev, hc_list_ptr->ilist.prev->next);
+	mutex_lock(&list_lock);
+	list_add_tail_rcu(&new_he->list, &hc_list_ptr->ilist);
+	mutex_unlock(&list_lock);
+	synchronize_rcu();
 }
 
 /* 2、查询 */
@@ -87,7 +87,10 @@ void delete_hotness_entry(struct f2fs_sb_info *sbi, block_t blkaddr)
 	if (he) {
 		hc_list_ptr->count--;
 		radix_tree_delete(&hc_list_ptr->iroot, he->blk_addr);
-		list_del(&he->list);
+		mutex_lock(&list_lock);
+		list_del_rcu(&he->list);
+		mutex_unlock(&list_lock);
+		synchronize_rcu();
 		kmem_cache_free(hotness_entry_slab, he);
 	}
 }
@@ -277,12 +280,14 @@ void save_hotness_entry(struct f2fs_sb_info *sbi)
 	printk("pos = 0x%x\n", pos);
 	// save blk_addr & IRR & LWS for each hotness_entry
 	struct hotness_entry *he, *tmp;
-	list_for_each_entry_safe(he, tmp, &hc_list_ptr->ilist, list){
+	rcu_read_lock();
+	list_for_each_entry_rcu(he, &hc_list_ptr->ilist, list){
 		kernel_write(fp, &he->blk_addr, sizeof(he->blk_addr), &pos);
 		kernel_write(fp, &he->IRR, sizeof(he->IRR), &pos);
 		kernel_write(fp, &he->LWS, sizeof(he->LWS), &pos);
 		// printk("%u, 0x%x\n", he->blk_addr, he->blk_addr);
 	}
+	rcu_read_unlock();
 	printk("pos = 0x%x\n", pos);
 	
 	filp_close(fp, NULL);

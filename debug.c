@@ -558,13 +558,14 @@ static int stat_show(struct seq_file *s, void *v)
 		struct hotness_entry *he;
 		// struct list_head *p;
 		seq_printf(s, "\n-------------------\n");
-		// seq_printf(s, "blk_addr = %u\n", *(&hc_list_ptr->ilist-12));
-		list_for_each_entry(he, &hc_list_ptr->ilist, list) {
+		rcu_read_lock();
+		list_for_each_entry_rcu(he, &hc_list_ptr->ilist, list) {
 			seq_printf(s, "blk_addr = %u, IRR = %u, LWS = %u, ", he->blk_addr, he->IRR, he->LWS);
 			if (he->hei) 
 				seq_printf(s, "ino = %u, segno = %u, type = %u, temp = %u, io_type = %u, nid = %u, ofs_in_node = %u", he->hei->ino, he->hei->segno, he->hei->type, he->hei->temp, he->hei->io_type, he->hei->nid, he->hei->ofs_in_node);
 			seq_printf(s, "\n");
 		}
+		rcu_read_unlock();	
 		seq_printf(s, "new_blk_cnt = %u\n", hc_list_ptr->new_blk_cnt);
 		seq_printf(s, "new_blk_compress_cnt = %u\n", hc_list_ptr->new_blk_compress_cnt);
 		seq_printf(s, "upd_blk_cnt = %u\n", hc_list_ptr->upd_blk_cnt);
@@ -581,11 +582,8 @@ static int stat_show(struct seq_file *s, void *v)
 		}
 		// list_for_each(p, &hc_list_ptr->ilist) {
 		// 	he = list_entry(p, struct hotness_entry, list);
-		// 	seq_printf(s, "blk_addr = %u, IRR = %u, LWS = %u\n", he->blk_addr, he->IRR, he->LWS);
+		// 	seq_printf("...");
 		// }
-		// p = &hc_list_ptr->ilist;
-		// he = list_entry(p, struct hotness_entry, list);
-		// seq_printf(s, "blk_addr = %u, IRR = %u, LWS = %u, p = 0x%p, p->next = 0x%p, p->prev = 0x%p\n", he->blk_addr, he->IRR, he->LWS, p, p->next, p->prev);
 	}
 	mutex_unlock(&f2fs_stat_mutex);
 	return 0;
