@@ -3502,8 +3502,8 @@ reallocate:
 
 	// printk("type = %u\n", type);
 	// printk("fio->old_blkaddr = %u\n", fio->old_blkaddr);
-	if (type == CURSEG_WARM_DATA) {
-	// if (fio->type == DATA) {
+	// if (type == CURSEG_WARM_DATA) {
+	if (fio->type == DATA) {
        /*  
         1、累计写入块计数加一：total_writed_block_count++
         2、查询old_blkaddr对应的热度元数据 
@@ -3529,6 +3529,7 @@ reallocate:
             2、设置热度：IRR = current - LWS，LWS = total_writed_block_count;
             3、添加为new_blkaddr热度元数据
             4、重置old_blkaddr热度元数据 */
+			printk("Existing he\n");
 			unsigned int new_IRR = fio->sbi->total_writed_block_count - old_LWS;
 			unsigned int new_LWS = fio->sbi->total_writed_block_count;
 			insert_hotness_entry(fio->sbi, fio->new_blkaddr, &new_IRR, &new_LWS, new_hei);
