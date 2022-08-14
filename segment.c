@@ -3475,7 +3475,7 @@ static void update_device_state(struct f2fs_io_info *fio)
 
 static void do_write_page(struct f2fs_summary *sum, struct f2fs_io_info *fio)
 {
-	printk("In do_write_page\n");
+	// printk("In do_write_page\n");
 	unsigned int old_IRR, old_LWS;
 	int err;
 
@@ -3500,7 +3500,7 @@ reallocate:
 		goto reallocate;
 	}
 
-	printk("type = %u\n", type);
+	// printk("type = %u\n", type);
 	// printk("fio->old_blkaddr = %u\n", fio->old_blkaddr);
 	if (type == CURSEG_WARM_DATA) {
 	// if (fio->type == DATA) {
